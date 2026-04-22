@@ -37,6 +37,7 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,'SF Pro Text','S
 .pill-g{background:#1a4a0a;color:#a8e07a;}
 .pill-a{background:#5a3500;color:#f5c070;}
 .pill-r{background:#5a0a0a;color:#f0a0a0;}
+.pill-b{background:#0a3a5a;color:#70c0f0;}
 
 /* NAV */
 .nav{display:flex;background:var(--navy);border-top:1px solid rgba(255,255,255,0.07);flex-shrink:0;overflow-x:auto;}
@@ -308,7 +309,7 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
   <div class="pills">
     <div class="pill pill-g" id="pTransit">0 In Transit</div>
     <div class="pill pill-a" id="pGate">0 At Gate</div>
-    <div class="pill pill-r" id="pOverdue" style="display:none">0 Overdue</div>
+    <div class="pill pill-b" id="pUnloading">0 Unloading</div>
   </div>
 </div>
 
@@ -403,7 +404,10 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
       <div class="field"><label>Time *</label><input type="time" id="d_time" onchange="checkDispatchReady()"></div>
     </div>
     <div class="frow">
-      <div class="field"><label>Waybill No. *</label><input type="text" id="d_waybill" placeholder="WB-2026-XXXX" oninput="this.value=this.value.toUpperCase();checkDispatchReady()"></div>
+      <div class="field">
+        <label>Waybill No.</label>
+        <input type="text" id="d_waybill" readonly style="background:var(--surface2);color:var(--text2);font-weight:600;font-size:13px;" placeholder="Auto-generated on submit">
+      </div>
       <div class="field"><label>NPA Manifest No.</label><input type="text" id="d_manifest" placeholder="NPA-XXXX"></div>
     </div>
     <div class="field"><label>Remarks</label><textarea id="d_remarks" placeholder="Optional..."></textarea></div>
@@ -527,21 +531,39 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
       <select id="u_brv" onchange="prefillUnload()"><option value="">— Select BRV —</option></select>
     </div>
     <div class="frow">
-      <div class="field"><label>Arrival Tank Pressure (bar)</label><input type="number" id="u_pressure" placeholder="bar" step="0.1"></div>
-      <div class="field"><label>Arrival Temp (°C)</label><input type="number" id="u_temp" placeholder="°C" step="0.1"></div>
+      <div class="field"><label>Coriolis Meter — Mass Delivered (kg) *</label>
+        <input type="number" id="u_flow" placeholder="kg from DCS" step="0.1" oninput="calcUnload();checkUnloadReady()">
+      </div>
+      <div class="field"><label>Post-discharge Weight (kg) *</label>
+        <input type="number" id="u_postgross" placeholder="weigh-bridge kg" step="0.1" oninput="calcUnload();checkUnloadReady()">
+      </div>
     </div>
     <div class="frow">
-      <div class="field"><label>Flow Meter Reading (m³)</label><input type="number" id="u_flow" placeholder="m³" step="0.001" oninput="calcUnload()"></div>
-      <div class="field"><label>Post-discharge Weight (kg)</label><input type="number" id="u_postgross" placeholder="kg" oninput="calcUnload()"></div>
+      <div class="field"><label>Unloading Start *</label>
+        <input type="time" id="u_start" oninput="checkUnloadReady()">
+      </div>
+      <div class="field"><label>Unloading End *</label>
+        <input type="time" id="u_end" oninput="checkUnloadReady()">
+      </div>
     </div>
     <div class="frow">
-      <div class="field"><label>Unloading Start</label><input type="time" id="u_start"></div>
-      <div class="field"><label>Unloading End</label><input type="time" id="u_end"></div>
+      <div class="field"><label>Arrival Tank Pressure (bar)</label>
+        <input type="number" id="u_pressure" placeholder="bar" step="0.1">
+      </div>
+      <div class="field"><label>Arrival Temperature (°C)</label>
+        <input type="number" id="u_temp" placeholder="°C" step="0.1">
+      </div>
     </div>
     <div id="u_calc_result"></div>
-    <div class="field"><label>Bay Operator</label><input type="text" id="u_operator" placeholder="Name / badge"></div>
+    <div class="field"><label>Bay Operator *</label>
+      <select id="u_operator_sel" onchange="checkUnloadReady()"><option value="">— Select operator —</option></select>
+    </div>
+    <div id="u_op_pin_row" style="display:none;">
+      <button class="btn btn-orange btn-sm" id="u_op_btn" onclick="openPin('unloadOp')" style="width:100%;margin-bottom:0;">Enter Operator PIN to Confirm</button>
+      <div id="u_op_confirmed" style="display:none;margin-top:8px;" class="success-box"></div>
+    </div>
     <div class="field"><label>Remarks</label><textarea id="u_remarks" placeholder="Optional..."></textarea></div>
-    <button class="btn btn-green" onclick="submitUnload()" style="margin-top:4px">Complete Custody Transfer</button>
+    <button class="btn btn-green" id="u_submit_btn" onclick="submitUnload()" style="margin-top:4px" disabled>Complete Custody Transfer</button>
   </div>
 
   <div class="sdiv"><div class="sdiv-line"></div><div class="sdiv-text">Recently Completed</div><div class="sdiv-line"></div></div>
@@ -793,6 +815,41 @@ function initFirebase() {
 // ═══════════════════════════════════════════
 //  CONSTANTS & STATE
 // ═══════════════════════════════════════════
+// ═══════════════════════════════════════════
+//  WAYBILL GENERATION
+// ═══════════════════════════════════════════
+async function generateWaybill(product) {
+  const now = new Date();
+  const yyyy = now.getFullYear();
+  const mm = String(now.getMonth()+1).padStart(2,'0');
+  const dd = String(now.getDate()).padStart(2,'0');
+  const dateStr = `${yyyy}${mm}${dd}`;
+  const productCode = product === 'Propane' ? 'PRL' : 'BRL';
+  const counterKey = `waybill_${dateStr}_${productCode}`;
+
+  let seq = 1;
+  try {
+    if(db) {
+      const doc = await db.collection('config').doc(counterKey).get();
+      if(doc.exists) {
+        seq = (doc.data().seq || 0) + 1;
+      }
+      await db.collection('config').doc(counterKey).set({ seq, date: dateStr, product: productCode });
+    } else {
+      // localStorage fallback
+      const stored = parseInt(localStorage.getItem(counterKey) || '0');
+      seq = stored + 1;
+      localStorage.setItem(counterKey, String(seq));
+    }
+  } catch(e) {
+    console.error('Waybill counter error:', e);
+    seq = Math.floor(Math.random() * 9000) + 1000; // fallback random
+  }
+
+  const seqStr = String(seq).padStart(4, '0');
+  return `GEGL-WB-${dateStr}-${productCode}-${seqStr}`;
+}
+
 const WAYPOINTS = {
   tarkwa:  { name:'Tarkwa',         lat: 5.2986, lng: -1.9944 },
   agona:   { name:'Agona Nkwanta',  lat: 5.4978, lng: -1.8722 },
@@ -1012,8 +1069,8 @@ function getChecklistResult() {
 function checkDispatchReady() {
   const reg=v('d_reg'), dsel=v('d_driver_sel'), seal=v('d_seal'),
         tare=v('d_tare'), gross=v('d_gross'), date=v('d_date'),
-        time=v('d_time'), waybill=v('d_waybill'), pressure=v('d_pressure');
-  const fieldsOk = !!(reg&&dsel&&seal&&tare&&gross&&date&&time&&waybill&&pressure);
+        time=v('d_time'), pressure=v('d_pressure');
+  const fieldsOk = !!(reg&&dsel&&seal&&tare&&gross&&date&&time&&pressure);
   const clr = getChecklistResult();
   const checklistOk = clr.incomplete===0 && clr.failed.length===0;
   const ready = fieldsOk && checklistOk && dispEngConfirmed && dispSupConfirmed;
@@ -1024,7 +1081,7 @@ function checkDispatchReady() {
   btn.style.cursor  = ready ? 'pointer' : 'not-allowed';
   // Update status hint
   const hints = [];
-  if(!fieldsOk)     hints.push('Fill all required fields');
+  if(!fieldsOk)     hints.push('Fill all required fields (waybill auto-generated)');
   if(clr.incomplete>0) hints.push(clr.incomplete+' checklist item(s) unanswered');
   if(clr.failed.length>0) hints.push(clr.failed.length+' checklist item(s) failed');
   if(!dispEngConfirmed) hints.push('Engineer PIN required (Step 1)');
@@ -1150,6 +1207,22 @@ function calcNet() {
   }
 }
 
+function checkUnloadReady(){
+  const id=v('u_brv');
+  const flow=v('u_flow');
+  const post=v('u_postgross');
+  const start=v('u_start');
+  const end=v('u_end');
+  const opId=v('u_operator_sel');
+  const opConfirmed=window._unloadOpConfirmed||false;
+  const btn=document.getElementById('u_submit_btn');
+  // Show PIN row when operator selected
+  const pinRow=document.getElementById('u_op_pin_row');
+  if(opId) pinRow.style.display='block'; else pinRow.style.display='none';
+  const ready=!!(id&&flow&&post&&start&&end&&opId&&opConfirmed);
+  if(btn) btn.disabled=!ready;
+}
+
 function calcUnload() {
   const id = v('u_brv');
   const trip = trips.find(t=>t.id===id);
@@ -1200,8 +1273,8 @@ function calcUnload() {
 async function submitDispatch() {
   const reg=v('d_reg'), dsel=v('d_driver_sel'), seal=v('d_seal'),
         tare=v('d_tare'), gross=v('d_gross'), date=v('d_date'),
-        time=v('d_time'), waybill=v('d_waybill'), pressure=v('d_pressure');
-  if(!reg||!dsel||!seal||!tare||!gross||!date||!time||!waybill||!pressure) {
+        time=v('d_time'), pressure=v('d_pressure');
+  if(!reg||!dsel||!seal||!tare||!gross||!date||!time||!pressure) {
     toast('⚠ Fill all required fields','warn'); return;
   }
   if(!dispEngConfirmed) { toast('⚠ Engineer PIN sign-off required (Step 1)','warn'); return; }
@@ -1223,13 +1296,17 @@ async function submitDispatch() {
   const eta    = new Date(date+'T'+time);
   eta.setHours(eta.getHours()+6);
 
+  // Generate waybill number on submission
+  const generatedWaybill = await generateWaybill(selProd);
+  document.getElementById('d_waybill').value = generatedWaybill;
+
   const trip = {
     id: 'BRV-'+Date.now(), reg, driverId:dsel, driverName:driver?driver.name:'Unknown',
     driverBadge:driver?driver.badge:'', driverPhone:driver?driver.phone:'',
     product:selProd, tare:parseFloat(tare), gross:parseFloat(gross), net,
     volumeM3: parseFloat(vol.toFixed(3)), compartments:v('d_comps'),
     seal, dispDate:date, dispTime:time, pressure:parseFloat(pressure),
-    refTemp:REF_TEMPS[selProd], waybill, manifest:v('d_manifest'),
+    refTemp:REF_TEMPS[selProd], waybill:generatedWaybill, manifest:v('d_manifest'),
     engineer:eng2?eng2.name:'', supervisor:sup?sup.name:'', dispRemarks:v('d_remarks'),
     checklistPassed:clr.passed, checklistFailed:clr.failed,
     status:'transit', eta:eta.toISOString(),
@@ -1251,8 +1328,10 @@ function resetDispatch() {
   dispEngConfirmed=false;
   dispSupConfirmed=false;
   checkDispatchReady();
-  ['d_reg','d_seal','d_tare','d_gross','d_net','d_vol','d_pressure','d_waybill','d_manifest','d_remarks']
+  ['d_reg','d_seal','d_tare','d_gross','d_net','d_vol','d_pressure','d_manifest','d_remarks']
     .forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  const wbEl=document.getElementById('d_waybill');
+  if(wbEl){wbEl.value='';wbEl.placeholder='Auto-generated on submit';}
   document.getElementById('d_driver_sel').value='';
   document.getElementById('d_eng_sel').value='';
   document.getElementById('d_sup_sel').value='';
@@ -1421,9 +1500,9 @@ function renderJourney() {
     const etaStr=eta.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
     const etaDate=eta.toLocaleDateString('en-GB',{day:'numeric',month:'short'});
     const overdue=now>eta;
-    const tDone=t.waypoints.tarkwa!==null;
-    const aDone=t.waypoints.agona!==null;
-    const gDone=t.waypoints.tnet!==null;
+    const tDone=t.waypoints.tarkwa && !isNaN(new Date(t.waypoints.tarkwa));
+    const aDone=t.waypoints.agona && !isNaN(new Date(t.waypoints.agona));
+    const gDone=t.waypoints.tnet && !isNaN(new Date(t.waypoints.tnet));
     const tUnlocked=!tDone;
     const aUnlocked=!aDone&&tDone;
     const gUnlocked=!gDone&&aDone;
@@ -1447,7 +1526,7 @@ function renderJourney() {
         ${aDone?'✓ Agona Nkwanta — '+fmtTime(t.waypoints.agona):aUnlocked?'Tap to Check In — Agona Nkwanta':'Agona Nkwanta Checkpoint'}
       </button>
       <button id="wpt-g-${t.id}" class="wpt-btn ${gDone?'done':gUnlocked?'unlocked':''}" onclick="checkIn('${t.id}','tnet')" ${gDone||!gUnlocked?'disabled':''}>
-        ${gDone?'✓ TNET Gate — Arrived '+fmtTime(t.waypoints.tnet):gUnlocked?'Tap to Record TNET Gate Arrival':'TNET Gate Arrival'}
+        ${gDone?'✓ TNET Gate — Arrived '+(t.waypoints.tnet&&!isNaN(new Date(t.waypoints.tnet))?fmtTime(t.waypoints.tnet):''):gUnlocked?'Tap to Check In — TNET Gate':'TNET Gate Checkpoint'}
       </button>
     </div>`;
   }).join('');
@@ -1480,7 +1559,12 @@ function startRealtimeSync() {
   if(!db) { console.log('Offline mode — realtime sync disabled'); return; }
   // Listen for trip changes in real-time
   db.collection('trips').orderBy('dispDate','desc').onSnapshot(snapshot=>{
-    trips = snapshot.docs.map(d=>d.data());
+    // Deduplicate by id to prevent duplicate cards
+    const seen = new Set();
+    trips = snapshot.docs.map(d=>d.data()).filter(t=>{
+      if(seen.has(t.id)) return false;
+      seen.add(t.id); return true;
+    });
     updatePills();
     // Re-render whichever screen is active
     const active = document.querySelector('.nb.active');
@@ -1540,7 +1624,7 @@ function renderArrivals() {
 function tripCardHTML(t) {
   const map={transit:['b-transit','In Transit'],journey:['b-journey','On Journey'],
     overdue:['b-overdue','OVERDUE'],'gate-waiting':['b-gate','Waiting at Gate'],gate:['b-gate','At Gate'],
-    'gate-hold':['b-overdue','HELD'],'unloading':['b-unloading','Unloading'],
+    'gate-hold':['b-overdue','HELD'],'unloading':['b-journey','Unloading'],
     cleared:['b-cleared','Cleared'],complete:['b-complete','Complete']};
   const[cls,lbl]=map[t.status]||['b-complete','Unknown'];
   return `<div class="tcard" onclick="showDetail('${t.id}')">
@@ -1660,8 +1744,8 @@ function showDetail(id) {
     ${dr('Tank Pressure',t.pressure+' bar')}${dr('Ref Temp',t.refTemp+'°C')}
     ${dr('Compartments',t.compartments)}${dr('Seal No.',t.seal)}
     ${dr('Dispatched',t.dispDate+' at '+t.dispTime)}
-    ${dr('Inspecting Engineer',t.engineer||'—')}
-    ${dr('Authorising Supervisor',t.supervisor||'—')}${dr('ETA',new Date(t.eta).toLocaleString('en-GB'))}
+    ${dr('Inspecting Engineer',t.engineer+(t.dispatchEngStamp?' — '+fmtTime(t.dispatchEngStamp.time):''))}
+    ${dr('Authorising Supervisor',t.supervisor+(t.dispatchSupStamp?' — '+fmtTime(t.dispatchSupStamp.time):''))}${dr('ETA',new Date(t.eta).toLocaleString('en-GB'))}
     ${dr('Checklist',t.checklistPassed+'/'+CHECKLIST.length+' passed'+(t.checklistFailed.length?' — FAIL: '+t.checklistFailed.join(', '):''))}
     ${t.dispRemarks?dr('Remarks',t.dispRemarks):''}
   </div>`;
@@ -1669,22 +1753,24 @@ function showDetail(id) {
   if(t.waypoints.tarkwa||t.waypoints.agona){
     h+=`<div class="slabel">Journey Waypoints</div>
     <div class="card-sm" style="padding:12px;margin-bottom:10px;">
-      ${dr('Tarkwa',t.waypoints.tarkwa?fmtTime(t.waypoints.tarkwa):'Not reached')}
-      ${dr('Agona Nkwanta',t.waypoints.agona?fmtTime(t.waypoints.agona):'Not reached')}
+      ${dr('Tarkwa',t.waypoints.tarkwa&&!isNaN(new Date(t.waypoints.tarkwa))?fmtTime(t.waypoints.tarkwa):'Not reached')}
+      ${dr('Agona Nkwanta',t.waypoints.agona&&!isNaN(new Date(t.waypoints.agona))?fmtTime(t.waypoints.agona):'Not reached')}
+      ${dr('TNET Gate',t.waypoints.tnet&&!isNaN(new Date(t.waypoints.tnet))?fmtTime(t.waypoints.tnet):'Not reached')}
     </div>`;
   }
 
   if(t.arrival){
     h+=`<div class="slabel">Gate Entry Record</div>
     <div class="card-sm" style="padding:12px;margin-bottom:10px;">
-      ${dr('Arrived',t.arrival.date+' at '+t.arrival.time)}
+      ${dr('Driver Tapped In',t.waypoints.tnet&&!isNaN(new Date(t.waypoints.tnet))?fmtTime(t.waypoints.tnet):'—')}
+      ${dr('Gate Entry Recorded',t.arrival.date+' at '+t.arrival.time)}
       ${dr('Assigned Bay',t.bay||'—')}
       ${dr('Weigh-bridge Tare',t.arrival.tare.toLocaleString()+' kg')}
       ${dr('Tare Variance',(t.arrival.tare-t.tare).toLocaleString()+' kg')}
       ${dr('Screening',t.arrival.screening)}${dr('Seal Check',t.arrival.seal)}
       ${dr('ADR Placards',t.arrival.adr)}${dr('Documents',t.arrival.docs)}
-      ${dr('Operations Engineer',t.arrival.engineer||'—')}
-      ${dr('Gate Supervisor',t.arrival.supervisor||'—')}
+      ${dr('Operations Engineer',t.arrival.engineer+(t.arrival.engineerStamp?' — '+fmtTime(t.arrival.engineerStamp):''))}
+      ${dr('Gate Supervisor',t.arrival.supervisor+(t.arrival.supervisorStamp?' — '+fmtTime(t.arrival.supervisorStamp):''))}
       ${t.arrival.remarks?dr('Remarks',t.arrival.remarks):''}
     </div>`;
   }
@@ -2122,7 +2208,7 @@ async function spUpload(){
 // ═══════════════════════════════════════════
 function v(id){return (document.getElementById(id)||{}).value?.trim()||'';}
 function addAct(text,ts){activity.unshift({text,ts:ts||new Date().toISOString()});if(activity.length>100)activity=activity.slice(0,100);}
-function fmtTime(ts){try{return new Date(ts).toLocaleString('en-GB',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'});}catch(e){return '';}}
+function fmtTime(ts){try{if(!ts)return '';const d=new Date(ts);if(isNaN(d))return '';return d.toLocaleString('en-GB',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'});}catch(e){return '';}}
 function fmtDateLabel(d){
   const today=new Date().toISOString().slice(0,10);
   const yest=new Date(Date.now()-86400000).toISOString().slice(0,10);
@@ -2130,13 +2216,13 @@ function fmtDateLabel(d){
   return new Date(d).toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short',year:'numeric'});
 }
 function updatePills(){
-  const tr=trips.filter(t=>['transit','journey'].includes(t.status)).length;
-  const ga=trips.filter(t=>['gate','gate-hold','gate-waiting'].includes(t.status)).length;
-  const ov=trips.filter(t=>t.status==='overdue').length;
+  const tr=trips.filter(t=>['transit','journey','overdue','gate-waiting'].includes(t.status)).length;
+  const ga=trips.filter(t=>['gate','gate-hold'].includes(t.status)).length;
+  const ul=trips.filter(t=>t.status==='unloading').length;
   document.getElementById('pTransit').textContent=tr+' In Transit';
   document.getElementById('pGate').textContent=ga+' At Gate';
-  const op=document.getElementById('pOverdue');
-  op.textContent=ov+' Overdue';op.style.display=ov?'':'none';
+  const up=document.getElementById('pUnloading');
+  up.textContent=ul+' Unloading';up.style.display='';
 }
 function toast(msg,type){
   const t=document.getElementById('toast');
