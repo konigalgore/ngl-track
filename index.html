@@ -1151,7 +1151,7 @@ function populateDropdowns() {
   });
 
   // BRV at bay
-  const gateTrips = trips.filter(t=>t.status==='gate');
+  const gateTrips = trips.filter(t=>['gate','unloading'].includes(t.status));
   const ubrv = document.getElementById('u_brv');
   ubrv.innerHTML = '<option value="">— Select BRV —</option>';
   gateTrips.forEach(t=>{
@@ -2085,6 +2085,20 @@ async function validatePin() {
     toast('✓ Supervisor approval confirmed — submitting entry...');
     setTimeout(()=>submitArrival(),300);
 
+  } else if(pinCtx==='unloadOp'){
+    const opId=v('u_operator_sel');
+    if(!opId){err.textContent='Select an operator first';pinVal='';updatePinDots();return;}
+    const op=staff.find(s=>s.id===opId);
+    if(!op){err.textContent='Operator not found';pinVal='';updatePinDots();return;}
+    if(op.pin!==pinVal){err.textContent='Incorrect PIN';pinVal='';updatePinDots();return;}
+    window._unloadOpConfirmed=true;
+    const oc=document.getElementById('u_op_confirmed');
+    oc.style.display='block'; oc.textContent='✓ '+op.name+' — Operator confirmed';
+    document.getElementById('u_op_btn').style.display='none';
+    document.getElementById('pinOverlay').classList.remove('open');
+    checkUnloadReady();
+    toast('✓ Operator PIN confirmed');
+
   } else if(['addDriver','addStaff','delDriver','delStaff','changePin'].includes(pinCtx)){
     if(pinVal!==settings.adminPin){err.textContent='Incorrect admin PIN';pinVal='';updatePinDots();return;}
     document.getElementById('pinOverlay').classList.remove('open');
@@ -2266,10 +2280,10 @@ function fmtDateLabel(d){
 function updatePills(){
   // In Transit = dispatched, on road, waypoints, waiting at gate
   const tr=trips.filter(t=>['transit','journey','overdue','gate-waiting'].includes(t.status)).length;
-  // At Gate = BOTH engineer + supervisor confirmed entry
-  const ga=trips.filter(t=>['gate','gate-hold'].includes(t.status)).length;
-  // Unloading = custody transfer in progress
-  const ul=trips.filter(t=>t.status==='unloading').length;
+  // At Gate = waiting at gate (gate-waiting amber banner only — not yet authorised)
+  const ga=trips.filter(t=>t.status==='gate-waiting').length;
+  // Unloading = authorised entry (gate) + custody transfer in progress (unloading)
+  const ul=trips.filter(t=>['gate','gate-hold','unloading'].includes(t.status)).length;
   document.getElementById('pTransit').textContent=tr+' In Transit';
   document.getElementById('pGate').textContent=ga+' At Gate';
   const up=document.getElementById('pUnloading');
