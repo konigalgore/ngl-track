@@ -1160,6 +1160,19 @@ function populateDropdowns() {
     ubrv.appendChild(opt);
   });
 
+  // Always populate operator dropdown from full staff register
+  const opSel = document.getElementById('u_operator_sel');
+  if(opSel){
+    const curOp = opSel.value;
+    opSel.innerHTML = '<option value="">— Select operator —</option>';
+    staff.forEach(s=>{
+      const opt = document.createElement('option');
+      opt.value = s.id; opt.textContent = s.name + ' (' + s.role + ')';
+      opSel.appendChild(opt);
+    });
+    opSel.value = curOp;
+  }
+
   // Duty engineer
   const eng = document.getElementById('a_eng_sel');
   const ecur = eng.value;
