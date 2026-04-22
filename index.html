@@ -1373,13 +1373,30 @@ function prefillArr() {
   const t = trips.find(tr=>tr.id===v('a_brv'));
   if(t) document.getElementById('a_tare').value = t.tare;
 }
-function prefillUnload() {
-  const t = trips.find(tr=>tr.id===v('u_brv'));
-  if(t && t.arrival) {
-    document.getElementById('u_pressure').value = t.arrival.pressure||'';
-    document.getElementById('u_temp').value = t.arrival.temp||REF_TEMPS[t.product];
+function prefillUnload(){
+  const id=v('u_brv');
+  const trip=trips.find(t=>t.id===id);
+  if(!trip)return;
+  // Pre-fill pressure/temp from arrival if available
+  if(trip.arrival){
+    document.getElementById('u_pressure').value=trip.arrival.pressure||'';
+    document.getElementById('u_temp').value=trip.arrival.temp||REF_TEMPS[trip.product]||'';
   }
+  // Populate operator dropdown from staff register
+  const opSel=document.getElementById('u_operator_sel');
+  opSel.innerHTML='<option value="">— Select operator —</option>';
+  staff.forEach(s=>{
+    const opt=document.createElement('option');
+    opt.value=s.id; opt.textContent=s.name+' ('+s.role+')';
+    opSel.appendChild(opt);
+  });
+  document.getElementById('u_op_pin_row').style.display='none';
+  document.getElementById('u_op_confirmed').style.display='none';
+  document.getElementById('u_op_btn').style.display='block';
+  document.getElementById('u_remarks').value='';
   document.getElementById('u_calc_result').innerHTML='';
+  window._unloadOpConfirmed=false;
+  checkUnloadReady();
 }
 
 async function submitArrival() {
@@ -1446,45 +1463,64 @@ function showApproval(trip) {
 }
 
 async function submitUnload() {
-  const id=v('u_brv'),op=v('u_operator'),flow=v('u_flow'),postGross=v('u_postgross');
-  if(!id||!flow||!postGross){toast('⚠ Fill flow meter and post-discharge weight','warn');return;}
+  const id=v('u_brv');
   const trip=trips.find(t=>t.id===id);
-  if(!trip)return;
+  if(!trip){toast('⚠ Select a BRV','warn');return;}
+  const flow=parseFloat(v('u_flow')||0);
+  const postGross=parseFloat(v('u_postgross')||0);
+  const start=v('u_start');
+  const end=v('u_end');
+  const opId=v('u_operator_sel');
+  const op=staff.find(s=>s.id===opId);
+  if(!flow||!postGross||!start||!end||!opId){toast('⚠ Fill all required fields','warn');return;}
+  if(!window._unloadOpConfirmed){toast('⚠ Operator PIN required','warn');return;}
+
   const arrTemp=parseFloat(v('u_temp'))||REF_TEMPS[trip.product];
   const refTemp=REF_TEMPS[trip.product];
   const density=DENSITIES[trip.product];
-  const flowM3=parseFloat(flow);
-  const pgross=parseFloat(postGross);
-  const massDel=trip.gross-pgross;
+  const massDel=trip.gross-postGross;
   const volFromMass=massDel/density;
   const tempDiff=arrTemp-refTemp;
   const corrFactor=1-(tempDiff*TEMP_CORR);
   const volCorrected=volFromMass*corrFactor;
-  const flowVar=flowM3>0?Math.abs((flowM3-volCorrected)/volCorrected*100):0;
+  const flowMass=flow; // Coriolis reads mass in kg
+  const massVar=massDel>0?Math.abs((flowMass-massDel)/massDel*100):0;
 
   trip.unloading = {
     pressure:parseFloat(v('u_pressure'))||0, temp:arrTemp,
-    flowM3, postGross:pgross, start:v('u_start'), end:v('u_end'),
-    operator:op, remarks:v('u_remarks'),
-    massDel, volFromMass:parseFloat(volFromMass.toFixed(3)),
+    coriolis:flowMass, postGross, start, end,
+    operator:op?op.name:'', operatorId:opId, operatorStamp:new Date().toISOString(),
+    remarks:v('u_remarks'),
+    massDel:parseFloat(massDel.toFixed(1)),
+    volFromMass:parseFloat(volFromMass.toFixed(3)),
     volCorrected:parseFloat(volCorrected.toFixed(3)),
-    flowVariancePct:parseFloat(flowVar.toFixed(2))
+    massVariancePct:parseFloat(massVar.toFixed(2))
   };
-  if(trip.arrival) {
+  if(trip.arrival){
     trip.arrival.pressure=v('u_pressure');
     trip.arrival.temp=arrTemp;
   }
+  // Status: unloading → cleared
   trip.status='cleared';
-  addAct(`${trip.reg} unloaded — ${massDel.toLocaleString()} kg — ${volCorrected.toFixed(3)} m³`,new Date().toISOString());
+  addAct(`${trip.reg} custody transfer complete — ${massDel.toLocaleString()} kg — ${volCorrected.toFixed(3)} m³`,new Date().toISOString());
   await saveTripToFB(trip);
   await sv();
-  populateDropdowns(); renderArrivals(); renderDashboard();
+  populateDropdowns(); renderArrivals(); renderDashboard(); updatePills();
   toast('✓ Custody transfer complete — '+trip.reg);
-  ['u_flow','u_postgross','u_pressure','u_temp','u_start','u_end','u_operator','u_remarks'].forEach(id=>{
+
+  // Reset form
+  ['u_flow','u_postgross','u_pressure','u_temp','u_start','u_end','u_remarks'].forEach(id=>{
     const el=document.getElementById(id);if(el)el.value='';
   });
-  document.getElementById('u_calc_result').innerHTML='';
   document.getElementById('u_brv').value='';
+  document.getElementById('u_operator_sel').value='';
+  document.getElementById('u_op_pin_row').style.display='none';
+  document.getElementById('u_op_confirmed').style.display='none';
+  document.getElementById('u_op_btn').style.display='block';
+  document.getElementById('u_calc_result').innerHTML='';
+  window._unloadOpConfirmed=false;
+  const btn=document.getElementById('u_submit_btn');
+  if(btn)btn.disabled=true;
 }
 
 // ═══════════════════════════════════════════
@@ -1540,6 +1576,7 @@ async function checkIn(tripId, waypoint) {
     trip.status='gate-waiting';
     addAct(`${trip.reg} arrived at TNET Gate — awaiting duty engineer`,new Date().toISOString());
     toast('TNET gate arrival recorded — duty engineer notified via app');
+    renderArrivals();
   } else {
     trip.status='journey';
     addAct(`${trip.reg} checked in at ${WAYPOINTS[waypoint].name}`,new Date().toISOString());
@@ -1559,12 +1596,10 @@ function startRealtimeSync() {
   if(!db) { console.log('Offline mode — realtime sync disabled'); return; }
   // Listen for trip changes in real-time
   db.collection('trips').orderBy('dispDate','desc').onSnapshot(snapshot=>{
-    // Deduplicate by id to prevent duplicate cards
-    const seen = new Set();
-    trips = snapshot.docs.map(d=>d.data()).filter(t=>{
-      if(seen.has(t.id)) return false;
-      seen.add(t.id); return true;
-    });
+    // Deduplicate by id using Map (last write wins)
+    const map = new Map();
+    snapshot.docs.forEach(d=>{ const t=d.data(); if(t&&t.id) map.set(t.id,t); });
+    trips = Array.from(map.values());
     updatePills();
     // Re-render whichever screen is active
     const active = document.querySelector('.nb.active');
@@ -1609,7 +1644,7 @@ function renderArrivals() {
         </div>`).join('');
     } else { gwEl.innerHTML=''; }
   }
-  const incoming=trips.filter(t=>['transit','journey','overdue','gate-waiting'].includes(t.status));
+  const incoming=trips.filter(t=>['transit','journey','overdue'].includes(t.status));
   const inEl=document.getElementById('incomingList');
   inEl.innerHTML=incoming.length?incoming.map(t=>tripCardHTML(t)).join(''):'<div class="empty">No incoming BRVs.</div>';
   const completed=trips.filter(t=>t.status==='cleared').slice(0,8);
@@ -2216,8 +2251,11 @@ function fmtDateLabel(d){
   return new Date(d).toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short',year:'numeric'});
 }
 function updatePills(){
+  // In Transit = dispatched, on road, waypoints, waiting at gate
   const tr=trips.filter(t=>['transit','journey','overdue','gate-waiting'].includes(t.status)).length;
+  // At Gate = BOTH engineer + supervisor confirmed entry
   const ga=trips.filter(t=>['gate','gate-hold'].includes(t.status)).length;
+  // Unloading = custody transfer in progress
   const ul=trips.filter(t=>t.status==='unloading').length;
   document.getElementById('pTransit').textContent=tr+' In Transit';
   document.getElementById('pGate').textContent=ga+' At Gate';
