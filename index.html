@@ -335,9 +335,14 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
      DISPATCH SCREEN
 ══════════════════════════════════════════ -->
 <div class="screen active" id="screen-dispatch">
-  <div class="slabel">New BRV Dispatch: Prestea GCP</div>
 
-  <!-- Route -->
+  <!-- Pending supervisor approvals banner -->
+  <div id="pendingSupBanner" style="display:none;background:#5a3500;border:1px solid #f0c870;border-radius:var(--rs);padding:11px 14px;margin-bottom:12px;font-size:13px;color:#f5c070;">
+    <div style="font-weight:700;margin-bottom:4px;">&#9888; Awaiting Supervisor Dispatch Approval</div>
+    <div id="pendingSupList" style="font-size:12px;color:#f0c870;"></div>
+  </div>
+
+  <!-- Route info -->
   <div style="background:var(--surface);border-radius:var(--r);border:1px solid var(--border);padding:13px 15px;margin-bottom:12px;display:flex;align-items:center;gap:13px;">
     <div style="display:flex;flex-direction:column;align-items:center;">
       <div style="width:9px;height:9px;border-radius:50%;background:var(--green);flex-shrink:0;"></div>
@@ -354,100 +359,138 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
     <div style="font-size:12px;font-weight:700;color:var(--orange);background:#fff3e8;padding:4px 9px;border-radius:8px;white-space:nowrap;">145 km  |  6 hrs</div>
   </div>
 
-  <!-- Vehicle & Driver -->
-  <div class="card">
-    <div class="slabel">Vehicle & Driver</div>
-    <div class="field">
-      <label>BRV Registration *</label>
-      <input type="text" id="d_reg" placeholder="GR-XXXX-YY" oninput="this.value=this.value.toUpperCase();checkDispatchReady()">
-    </div>
-    <div class="field">
-      <label>Select Driver *</label>
-      <select id="d_driver_sel" onchange="onDriverSelect();checkDispatchReady()">
-        <option value="">Select driver</option>
-      </select>
-    </div>
-    <div id="d_driver_warn"></div>
-    <div class="frow">
-      <div class="field"><label>No. Compartments</label>
-        <select id="d_comps"><option>1</option><option>2</option><option>3</option><option>4</option></select>
-      </div>
-      <div class="field"><label>Safety Seal No. *</label>
-        <input type="text" id="d_seal" placeholder="SS-2026-XXXXX" oninput="this.value=this.value.toUpperCase();checkDispatchReady()">
-      </div>
-    </div>
-  </div>
+  <!-- STEP A: Vehicle, Driver, Checklist -->
+  <div id="dispStepA">
+    <div class="slabel" style="margin-bottom:8px;">Step 1: Vehicle Inspection &amp; Checklist</div>
 
-  <!-- Product & Loading -->
-  <div class="card">
-    <div class="slabel">Product & Loading</div>
-    <div class="field">
-      <label>Product Type *</label>
-      <div class="toggle">
-        <button class="tb active" id="pbP" onclick="setProd('Propane')">⚗️ Propane</button>
-        <button class="tb" id="pbB" onclick="setProd('Butane')">🔵 Butane</button>
-      </div>
-    </div>
-    <div class="frow">
-      <div class="field"><label>Tare Weight (kg) *</label><input type="number" id="d_tare" placeholder="18500" oninput="calcNet();checkDispatchReady()"></div>
-      <div class="field"><label>Gross Weight (kg) *</label><input type="number" id="d_gross" placeholder="28500" oninput="calcNet();checkDispatchReady()"></div>
-    </div>
-    <div class="frow">
-      <div class="field"><label>Net Load (kg)</label><input type="text" id="d_net" readonly placeholder="Auto-calc"></div>
-      <div class="field"><label>Volume (m³)</label><input type="text" id="d_vol" readonly placeholder="Auto-calc"></div>
-    </div>
-    <div class="frow">
-      <div class="field"><label>Tank Pressure (bar) *</label><input type="number" id="d_pressure" placeholder="e.g. 7.5" step="0.1" oninput="checkDispatchReady()"></div>
-      <div class="field"><label>Product Temp (°C)</label><input type="text" id="d_temp" readonly></div>
-    </div>
-  </div>
-
-  <!-- Departure -->
-  <div class="card">
-    <div class="slabel">Departure Details</div>
-    <div class="frow">
-      <div class="field"><label>Date *</label><input type="date" id="d_date" onchange="checkDispatchReady()"></div>
-      <div class="field"><label>Time *</label><input type="time" id="d_time" onchange="checkDispatchReady()"></div>
-    </div>
-    <div class="frow">
+    <!-- Vehicle & Driver -->
+    <div class="card">
+      <div class="slabel">Vehicle &amp; Driver</div>
       <div class="field">
-        <label>Waybill No.</label>
-        <input type="text" id="d_waybill" readonly style="background:var(--surface2);color:var(--text2);font-weight:600;font-size:13px;" placeholder="Auto-generated on submit">
+        <label>BRV Registration *</label>
+        <input type="text" id="d_reg" placeholder="GR-XXXX-YY" oninput="this.value=this.value.toUpperCase();">
       </div>
-      <div class="field"><label>NPA Manifest No.</label><input type="text" id="d_manifest" placeholder="NPA-XXXX"></div>
+      <div class="field">
+        <label>Select Driver *</label>
+        <select id="d_driver_sel" onchange="onDriverSelect()">
+          <option value="">Select driver</option>
+        </select>
+      </div>
+      <div id="d_driver_warn"></div>
+      <div class="frow">
+        <div class="field"><label>No. Compartments</label>
+          <select id="d_comps"><option>1</option><option>2</option><option>3</option><option>4</option></select>
+        </div>
+        <div class="field"><label>Safety Seal No. *</label>
+          <input type="text" id="d_seal" placeholder="SS-2026-XXXXX" oninput="this.value=this.value.toUpperCase();">
+        </div>
+      </div>
     </div>
-    <div class="field"><label>Remarks</label><textarea id="d_remarks" placeholder="Optional..."></textarea></div>
-  </div>
 
-  <!-- Pre-Departure Checklist -->
-  <div class="card">
-    <div class="slabel">Pre-Departure Safety Checklist</div>
-    <div id="checklistItems"></div>
-  </div>
-
-  <!-- Two-Level Sign-off -->
-  <div class="card">
-    <div class="slabel">Step 1: Engineer Sign-off (Prestea)</div>
-    <div class="field">
-      <label>Inspecting Engineer *</label>
-      <select id="d_eng_sel"><option value="">Select engineer</option></select>
+    <!-- Pre-loading Checklist -->
+    <div class="card">
+      <div class="slabel">Pre-Loading Safety Checklist</div>
+      <div style="font-size:12px;color:var(--text3);margin-bottom:10px;">Inspector must pass all 15 items. Any fail will reject the truck from loading.</div>
+      <div id="checklistItems"></div>
     </div>
-    <button class="btn btn-navy btn-sm" id="d_eng_btn" onclick="openPin('dispatchEng')" style="width:100%;margin-bottom:8px;">Enter Engineer PIN</button>
-    <div id="d_eng_confirmed" style="display:none;margin-top:4px;" class="success-box"></div>
-  </div>
 
-  <div class="card" id="d_sup_card" style="opacity:0.4;pointer-events:none;">
-    <div class="slabel">Step 2: Supervisor Approval (Prestea)</div>
-    <div class="field">
-      <label>Authorising Supervisor *</label>
-      <select id="d_sup_sel"><option value="">Select supervisor</option></select>
+    <!-- Inspector sign-off -->
+    <div class="card">
+      <div class="slabel">Inspector Authorisation</div>
+      <div class="field">
+        <label>Inspecting Engineer / Operator *</label>
+        <select id="d_eng_sel"><option value="">Select engineer</option></select>
+      </div>
+      <button class="btn btn-navy btn-sm" id="d_eng_btn" onclick="openPin('dispatchEng')" style="width:100%;margin-bottom:8px;">Enter Inspector PIN</button>
+      <div id="d_eng_confirmed" style="display:none;margin-top:4px;" class="success-box"></div>
     </div>
-    <button class="btn btn-orange btn-sm" id="d_sup_btn" onclick="openPin('dispatchSup')" style="width:100%;margin-bottom:8px;">Enter Supervisor PIN</button>
-    <div id="d_sup_confirmed" style="display:none;margin-top:4px;" class="success-box"></div>
+
+    <button class="btn btn-orange" id="checklistPassBtn" onclick="passChecklistToLoading()" style="margin-bottom:4px;opacity:0.35;cursor:not-allowed;" disabled>Checklist Passed &#8212; Proceed to Loading</button>
+    <div id="checklistHint" style="font-size:12px;color:var(--text3);text-align:center;margin-bottom:14px;min-height:18px;"></div>
   </div>
 
-  <button class="btn btn-orange" id="dispatchBtn" onclick="submitDispatch()" style="margin-bottom:4px;opacity:0.35;cursor:not-allowed;" disabled>Confirm & Create Dispatch Record</button>
-  <div id="dispatchHint" style="font-size:12px;color:var(--text3);text-align:center;margin-bottom:14px;min-height:18px;"></div>
+  <!-- STEP B: Loading details + Engineer final sign-off -->
+  <div id="dispStepB" style="display:none;">
+    <div style="background:var(--green-bg);border:1px solid var(--green-border);border-radius:var(--rs);padding:10px 13px;margin-bottom:12px;font-size:13px;color:var(--green);font-weight:600;">
+      &#10003; Checklist passed. Complete loading details below.
+    </div>
+
+    <!-- Product & Loading -->
+    <div class="card">
+      <div class="slabel">Product &amp; Loading</div>
+      <div class="field">
+        <label>Product Type *</label>
+        <div class="toggle">
+          <button class="tb active" id="pbP" onclick="setProd('Propane')">&#9927; Propane</button>
+          <button class="tb" id="pbB" onclick="setProd('Butane')">&#9679; Butane</button>
+        </div>
+      </div>
+      <div class="frow">
+        <div class="field"><label>Tare Weight (kg) *</label><input type="number" id="d_tare" placeholder="18500" oninput="calcNet();checkDispatchReady()"></div>
+        <div class="field"><label>Gross Weight (kg) *</label><input type="number" id="d_gross" placeholder="28500" oninput="calcNet();checkDispatchReady()"></div>
+      </div>
+      <div class="frow">
+        <div class="field"><label>Net Load (kg)</label><input type="text" id="d_net" readonly placeholder="Auto-calc"></div>
+        <div class="field"><label>Volume (m³)</label><input type="text" id="d_vol" readonly placeholder="Auto-calc"></div>
+      </div>
+      <div class="frow">
+        <div class="field"><label>Tank Pressure (bar) *</label><input type="number" id="d_pressure" placeholder="e.g. 7.5" step="0.1" oninput="checkDispatchReady()"></div>
+        <div class="field"><label>Product Temp (°C)</label><input type="text" id="d_temp" readonly></div>
+      </div>
+    </div>
+
+    <!-- Departure Details -->
+    <div class="card">
+      <div class="slabel">Departure Details</div>
+      <div class="frow">
+        <div class="field"><label>Date *</label><input type="date" id="d_date" onchange="checkDispatchReady()"></div>
+        <div class="field"><label>Time *</label><input type="time" id="d_time" onchange="checkDispatchReady()"></div>
+      </div>
+      <div class="frow">
+        <div class="field">
+          <label>Waybill No.</label>
+          <input type="text" id="d_waybill" readonly style="background:var(--surface2);color:var(--text2);font-weight:600;font-size:13px;" placeholder="Auto-generated on submit">
+        </div>
+        <div class="field"><label>NPA Manifest No.</label><input type="text" id="d_manifest" placeholder="NPA-XXXX"></div>
+      </div>
+      <div class="field"><label>Remarks</label><textarea id="d_remarks" placeholder="Optional..."></textarea></div>
+    </div>
+
+    <!-- Operations Engineer sign-off -->
+    <div class="card">
+      <div class="slabel">Step 2: Operations Engineer Sign-off</div>
+      <div style="font-size:12px;color:var(--text3);margin-bottom:10px;">Engineer verifies loading weights and authorises preliminary dispatch record. Supervisor final approval required before BRV departs.</div>
+      <div id="d_eng_confirmed2" style="display:none;margin-bottom:8px;" class="success-box"></div>
+      <button class="btn btn-navy btn-sm" id="d_eng_btn2" onclick="openPin('dispatchEng2')" style="width:100%;margin-bottom:8px;">Enter Operations Engineer PIN</button>
+    </div>
+
+    <button class="btn btn-orange" id="dispatchBtn" onclick="submitDispatch()" style="margin-bottom:4px;opacity:0.35;cursor:not-allowed;" disabled>Create Record &amp; Notify Supervisor</button>
+    <div id="dispatchHint" style="font-size:12px;color:var(--text3);text-align:center;margin-bottom:14px;min-height:18px;"></div>
+  </div>
+
+  <!-- STEP C: Pending supervisor approval (after engineer submits) -->
+  <div id="dispStepC" style="display:none;">
+    <div style="background:var(--amber-bg);border:1px solid var(--amber-border);border-radius:var(--r);padding:20px 16px;text-align:center;margin-bottom:12px;">
+      <div style="font-size:40px;margin-bottom:10px;">&#9201;</div>
+      <div style="font-size:18px;font-weight:700;color:var(--amber);margin-bottom:6px;">Awaiting Supervisor Approval</div>
+      <div style="font-size:13px;color:var(--text2);margin-bottom:14px;" id="pendingTripInfo"></div>
+      <div style="background:var(--surface);border-radius:var(--rs);padding:12px;text-align:left;margin-bottom:14px;" id="pendingTripDetails"></div>
+      <div style="font-size:12px;color:var(--text3);">All devices are notified. Any Supervisor or Superintendent with the right PIN can approve from this screen.</div>
+    </div>
+
+    <div class="card">
+      <div class="slabel">Step 3: Supervisor Final Dispatch Approval</div>
+      <div class="field">
+        <label>Authorising Supervisor / Shift Charge *</label>
+        <select id="d_sup_sel"><option value="">Select supervisor</option></select>
+      </div>
+      <button class="btn btn-orange btn-sm" id="d_sup_btn" onclick="openPin('dispatchSup')" style="width:100%;margin-bottom:8px;">Enter Supervisor PIN to Dispatch</button>
+      <div id="d_sup_confirmed" style="display:none;margin-top:4px;" class="success-box"></div>
+    </div>
+
+    <button class="btn btn-outline" onclick="resetDispatch()" style="margin-bottom:14px;">Start New Dispatch</button>
+  </div>
+
 </div>
 
 <!-- ══════════════════════════════════════════
@@ -788,6 +831,44 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 </div>
 
 <!-- ══ TOAST ══ -->
+<!-- CHECKLIST REJECT OVERLAY -->
+<div class="pin-overlay" id="checklistRejectOverlay" style="z-index:450;background:rgba(90,10,10,0.97);">
+  <div style="text-align:center;padding:28px 20px;max-width:340px;width:100%;">
+    <div style="font-size:56px;margin-bottom:12px;">&#128683;</div>
+    <div style="font-size:20px;font-weight:700;color:#fff;margin-bottom:8px;">Truck Rejected from Loading</div>
+    <div style="font-size:13px;color:rgba(255,255,255,0.8);margin-bottom:16px;">The following checklist items failed. The truck cannot proceed to loading until all defects are resolved and the checklist is re-done.</div>
+    <div style="background:rgba(255,255,255,0.12);border-radius:var(--rs);padding:12px;text-align:left;margin-bottom:20px;max-height:220px;overflow-y:auto;" id="checklistRejectList"></div>
+    <div style="font-size:12px;color:rgba(255,255,255,0.65);margin-bottom:20px;">Once the defect is fixed, the inspector must complete the full checklist again from the start.</div>
+    <button class="btn" onclick="resetChecklistForRetry()" style="background:#fff;color:var(--red);font-weight:700;border:none;width:100%;height:46px;border-radius:var(--rs);font-size:15px;">Reset Checklist for Re-inspection</button>
+  </div>
+</div>
+
+<!-- CUSTODY TRANSFER SUCCESS OVERLAY -->
+<div class="pin-overlay" id="custodySuccessOverlay" style="z-index:500;background:rgba(45,122,31,0.97);">
+  <div style="text-align:center;padding:32px 24px;max-width:340px;">
+    <div style="font-size:72px;margin-bottom:16px;">&#10004;</div>
+    <div style="font-size:24px;font-weight:700;color:#fff;margin-bottom:8px;">Custody Transfer Complete</div>
+    <div style="font-size:14px;color:rgba(255,255,255,0.85);margin-bottom:6px;" id="csReg"></div>
+    <div style="font-size:13px;color:rgba(255,255,255,0.7);margin-bottom:20px;" id="csDetails"></div>
+    <div style="background:rgba(255,255,255,0.18);border-radius:var(--rs);padding:14px;text-align:left;margin-bottom:20px;" id="csSummary"></div>
+    <div style="font-size:14px;font-weight:700;color:#fff;margin-bottom:6px;">BRV cleared to return to Prestea GCP</div>
+    <div style="font-size:12px;color:rgba(255,255,255,0.7);margin-bottom:24px;">Record saved to Firebase. Trip moved to History.</div>
+    <button class="btn" onclick="closeCustodySuccess()" style="background:#fff;color:var(--green);font-weight:700;border:none;width:100%;height:48px;border-radius:var(--rs);font-size:16px;">Close</button>
+  </div>
+</div>
+
+<!-- TNET ENTRY CHECKLIST REJECT OVERLAY -->
+<div class="pin-overlay" id="tnetRejectOverlay" style="z-index:450;background:rgba(90,10,10,0.97);">
+  <div style="text-align:center;padding:28px 20px;max-width:340px;width:100%;">
+    <div style="font-size:56px;margin-bottom:12px;">&#128683;</div>
+    <div style="font-size:20px;font-weight:700;color:#fff;margin-bottom:8px;">Entry Denied</div>
+    <div style="font-size:13px;color:rgba(255,255,255,0.8);margin-bottom:16px;">The BRV has failed the TNET entry checklist. Entry is not permitted. The truck must be held outside until all items are resolved, then go through the checklist again from the start.</div>
+    <div style="background:rgba(255,255,255,0.12);border-radius:var(--rs);padding:12px;text-align:left;margin-bottom:20px;max-height:220px;overflow-y:auto;" id="tnetRejectList"></div>
+    <div style="font-size:12px;color:rgba(255,255,255,0.65);margin-bottom:20px;">BRV status set to HELD. Once defect is resolved, the operator re-runs the full entry checklist.</div>
+    <button class="btn" onclick="resetTnetChecklistForRetry()" style="background:#fff;color:var(--red);font-weight:700;border:none;width:100%;height:46px;border-radius:var(--rs);font-size:15px;">Reset Entry Checklist for Re-inspection</button>
+  </div>
+</div>
+
 <!-- CHECK-IN CONFIRMATION OVERLAY -->
 <div class="pin-overlay" id="checkinOverlay" style="z-index:400;">
   <div class="pin-box" style="text-align:center;max-width:300px;">
@@ -918,10 +999,11 @@ let settings = { t1:2.5, t2:4.5, geo:500, varPct:0.5, adminPin:'1234' };
 let selProd  = 'Propane';
 let pinCtx   = null;
 let pinVal   = '';
-let dispEngConfirmed = false;
-let dispSupConfirmed = false;
-let gateEngConfirmed = false;
-let gateSupConfirmed = false;
+let dispEngConfirmed  = false;
+let dispEngConfirmed2 = false;
+let dispSupConfirmed  = false;
+let gateEngConfirmed  = false;
+let gateSupConfirmed  = false;
 
 // Firebase save functions
 async function saveTripToFB(trip) {
@@ -1014,6 +1096,13 @@ window.onload = async function() {
   applySettings();
   buildChecklist();
   buildTnetChecklist();
+  // Wire dispatch step A field changes to checkChecklistReady
+  ['d_reg','d_seal'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el) el.addEventListener('input',checkChecklistReady);
+  });
+  const dds=document.getElementById('d_driver_sel');
+  if(dds) dds.addEventListener('change',checkChecklistReady);
   populateDropdowns();
   updatePills();
   startOverdueCheck();
@@ -1107,7 +1196,7 @@ function setChk(id, val) {
   const fb = document.getElementById(id+'_f');
   pb.className = 'chk-btn' + (val==='pass'?' pass':'');
   fb.className = 'chk-btn' + (val==='fail'?' fail':'');
-  checkDispatchReady();
+  checkChecklistReady();
 }
 function getChecklistResult() {
   const total = CHECKLIST.length;
@@ -1117,28 +1206,77 @@ function getChecklistResult() {
   return { total, passed, failed, incomplete };
 }
 
-function checkDispatchReady() {
-  const reg=v('d_reg'), dsel=v('d_driver_sel'), seal=v('d_seal'),
-        tare=v('d_tare'), gross=v('d_gross'), date=v('d_date'),
-        time=v('d_time'), pressure=v('d_pressure');
-  const fieldsOk = !!(reg&&dsel&&seal&&tare&&gross&&date&&time&&pressure);
+// ─── Checklist step (Step A) readiness ───
+function checkChecklistReady() {
+  const reg=v('d_reg'), dsel=v('d_driver_sel'), seal=v('d_seal');
+  const fieldsOk = !!(reg&&dsel&&seal);
   const clr = getChecklistResult();
   const checklistOk = clr.incomplete===0 && clr.failed.length===0;
-  const ready = fieldsOk && checklistOk && dispEngConfirmed && dispSupConfirmed;
+  const ready = fieldsOk && checklistOk && dispEngConfirmed;
+  const btn = document.getElementById('checklistPassBtn');
+  if(!btn) return;
+  btn.disabled = !ready;
+  btn.style.opacity = ready ? '1' : '0.35';
+  btn.style.cursor  = ready ? 'pointer' : 'not-allowed';
+  const hints = [];
+  if(!fieldsOk) hints.push('Enter BRV registration, driver and seal number');
+  else if(clr.failed.length>0) hints.push(clr.failed.length+' checklist item(s) failed - truck cannot proceed to loading');
+  else if(clr.incomplete>0) hints.push(clr.incomplete+' checklist item(s) not yet answered');
+  else if(!dispEngConfirmed) hints.push('Inspector PIN required to authorise checklist');
+  const hintEl = document.getElementById('checklistHint');
+  if(hintEl) hintEl.textContent = ready ? '' : (hints[0]||'');
+}
+
+// ─── Loading step (Step B) readiness ───
+function checkDispatchReady() {
+  const tare=v('d_tare'), gross=v('d_gross'), date=v('d_date'),
+        time=v('d_time'), pressure=v('d_pressure');
+  const fieldsOk = !!(tare&&gross&&date&&time&&pressure);
+  const ready = fieldsOk && dispEngConfirmed2;
   const btn = document.getElementById('dispatchBtn');
   if(!btn) return;
   btn.disabled = !ready;
   btn.style.opacity = ready ? '1' : '0.35';
   btn.style.cursor  = ready ? 'pointer' : 'not-allowed';
-  // Update status hint
   const hints = [];
-  if(!fieldsOk)     hints.push('Fill all required fields (waybill auto-generated)');
-  if(clr.incomplete>0) hints.push(clr.incomplete+' checklist item(s) unanswered');
-  if(clr.failed.length>0) hints.push(clr.failed.length+' checklist item(s) failed');
-  if(!dispEngConfirmed) hints.push('Engineer PIN required (Step 1)');
-  else if(!dispSupConfirmed) hints.push('Supervisor PIN required (Step 2)');
+  if(!fieldsOk) hints.push('Fill all required loading fields');
+  else if(!dispEngConfirmed2) hints.push('Operations Engineer PIN required (Step 2)');
   const hintEl = document.getElementById('dispatchHint');
-  if(hintEl) hintEl.textContent = ready ? '' : hints[0];
+  if(hintEl) hintEl.textContent = ready ? '' : (hints[0]||'');
+}
+
+// ─── Pass checklist, reveal loading form ───
+function passChecklistToLoading() {
+  const clr = getChecklistResult();
+  if(clr.failed.length > 0) {
+    showChecklistReject(clr.failed);
+    return;
+  }
+  if(!dispEngConfirmed) { toast('Inspector PIN required','warn'); return; }
+  // Transition Step A -> Step B
+  document.getElementById('dispStepA').style.display='none';
+  document.getElementById('dispStepB').style.display='block';
+  checkDispatchReady();
+}
+
+// ─── Show checklist reject overlay ───
+function showChecklistReject(failedItems) {
+  const ol = document.getElementById('checklistRejectOverlay');
+  document.getElementById('checklistRejectList').innerHTML = failedItems.map(f=>'<div style="padding:4px 0;border-bottom:1px solid rgba(255,255,255,0.15);font-size:13px;color:#fff;">&#8226; '+f+'</div>').join('');
+  ol.classList.add('open');
+}
+function resetChecklistForRetry() {
+  document.getElementById('checklistRejectOverlay').classList.remove('open');
+  // Reset checklist to unanswered state for retry
+  Object.keys(checkState).forEach(k=>delete checkState[k]);
+  buildChecklist();
+  dispEngConfirmed = false;
+  document.getElementById('d_eng_confirmed').style.display='none';
+  document.getElementById('checklistPassBtn').disabled=true;
+  document.getElementById('checklistPassBtn').style.opacity='0.35';
+  document.getElementById('checklistPassBtn').style.cursor='not-allowed';
+  document.getElementById('checklistHint').textContent='Checklist reset. Fix the failed item(s) then re-inspect.';
+  toast('Checklist reset. Conduct re-inspection after defect is resolved.','warn');
 }
 
 // ═══════════════════════════════════════════
@@ -1192,7 +1330,7 @@ function populateDropdowns() {
   }
 
   // Arriving BRV
-  const transitTrips = trips.filter(t=>['transit','journey','overdue','gate-waiting'].includes(t.status));
+  const transitTrips = trips.filter(t=>['transit','journey','overdue','gate-waiting','pending_sup'].includes(t.status));
   const abrv = document.getElementById('a_brv');
   abrv.innerHTML = '<option value="">Select BRV</option>';
   transitTrips.forEach(t=>{
@@ -1332,83 +1470,149 @@ function calcUnload() {
 }
 
 // ═══════════════════════════════════════════
-//  DISPATCH SUBMIT
+//  DISPATCH SUBMIT (Engineer creates pending record)
 // ═══════════════════════════════════════════
+let _dispatching = false;
+let _pendingTripId = null;
+
 async function submitDispatch() {
+  if(_dispatching) { toast('Processing - please wait...','warn'); return; }
   const reg=v('d_reg'), dsel=v('d_driver_sel'), seal=v('d_seal'),
         tare=v('d_tare'), gross=v('d_gross'), date=v('d_date'),
         time=v('d_time'), pressure=v('d_pressure');
-  if(!reg||!dsel||!seal||!tare||!gross||!date||!time||!pressure) {
-    toast('⚠ Fill all required fields','warn'); return;
+  if(!tare||!gross||!date||!time||!pressure) {
+    toast('Fill all required loading fields','warn'); return;
   }
-  if(!dispEngConfirmed) { toast('⚠ Engineer PIN sign-off required (Step 1)','warn'); return; }
-  if(!dispSupConfirmed) { toast('⚠ Supervisor PIN approval required (Step 2)','warn'); return; }
-  const clr = getChecklistResult();
-  if(clr.incomplete > 0) {
-    toast('⚠ '+clr.incomplete+' checklist item(s) not answered','warn'); return;
+  if(!dispEngConfirmed2) { toast('Operations Engineer PIN required (Step 2)','warn'); return; }
+
+  _dispatching = true;
+  const btn=document.getElementById('dispatchBtn');
+  if(btn){btn.disabled=true;btn.textContent='Saving...';}
+
+  try {
+    const driver = drivers.find(d=>d.id===dsel);
+    const engId  = v('d_eng_sel');
+    const eng    = staff.find(s=>s.id===engId);
+    const net    = parseFloat(gross) - parseFloat(tare);
+    const vol    = net / DENSITIES[selProd];
+    const eta    = new Date(date+'T'+time);
+    eta.setHours(eta.getHours()+6);
+    const clr    = getChecklistResult();
+
+    const generatedWaybill = await generateWaybill(selProd);
+    document.getElementById('d_waybill').value = generatedWaybill;
+
+    const trip = {
+      id: 'BRV-'+Date.now(), reg, driverId:dsel, driverName:driver?driver.name:'Unknown',
+      driverBadge:driver?driver.badge:'', driverPhone:driver?driver.phone:'',
+      product:selProd, tare:parseFloat(tare), gross:parseFloat(gross), net,
+      volumeM3: parseFloat(vol.toFixed(3)), compartments:v('d_comps'),
+      seal, dispDate:date, dispTime:time, pressure:parseFloat(pressure),
+      refTemp:REF_TEMPS[selProd], waybill:generatedWaybill, manifest:v('d_manifest'),
+      inspector:eng?eng.name:'', engineer:'', supervisor:'',
+      dispEngStamp:{ name:eng?eng.name:'', time:new Date().toISOString() },
+      dispRemarks:v('d_remarks'),
+      checklistPassed:clr.passed, checklistFailed:clr.failed,
+      status:'pending_sup',
+      eta:eta.toISOString(),
+      waypoints:{ tarkwa:null, agona:null },
+      arrival:null, unloading:null, incidents:[]
+    };
+
+    trips.unshift(trip);
+    _pendingTripId = trip.id;
+    addAct(reg+' loading complete - awaiting supervisor dispatch approval ('+selProd+' '+net.toLocaleString()+' kg)', date+'T'+time);
+    await saveTripToFB(trip);
+    await sv();
+    updatePills(); populateDropdowns();
+
+    // Show Step C
+    document.getElementById('dispStepB').style.display='none';
+    document.getElementById('dispStepC').style.display='block';
+    document.getElementById('pendingTripInfo').textContent = reg+' | '+selProd+' | '+net.toLocaleString()+' kg | Waybill: '+generatedWaybill;
+    document.getElementById('pendingTripDetails').innerHTML =
+      '<div style="font-size:12px;color:var(--text2);display:flex;flex-direction:column;gap:6px;">'+
+      '<div><b>Driver:</b> '+(driver?driver.name:'')+'</div>'+
+      '<div><b>Inspector:</b> '+(eng?eng.name:'')+'</div>'+
+      '<div><b>Gross weight:</b> '+parseFloat(gross).toLocaleString()+' kg</div>'+
+      '<div><b>Net load:</b> '+net.toLocaleString()+' kg</div>'+
+      '<div><b>ETA TNET:</b> '+eta.toLocaleTimeString('en-GB',{hour:"2-digit",minute:"2-digit"})+' '+eta.toLocaleDateString("en-GB")+'</div>'+
+      '</div>';
+    updatePendingSupBanner();
+    toast('Record created. Supervisor approval required for dispatch.');
+  } catch(e) {
+    console.error('Dispatch error:',e);
+    toast('Error saving dispatch - try again','err');
+    if(btn){btn.disabled=false;btn.textContent='Create Record & Notify Supervisor';}
+  } finally {
+    _dispatching = false;
   }
-  if(clr.failed.length > 0) {
-    toast('⚠ Checklist has FAIL items - resolve before dispatch','warn'); return;
-  }
-  const driver = drivers.find(d=>d.id===dsel);
-  const engId2 = v('d_eng_sel');
-  const eng2   = staff.find(s=>s.id===engId2);
-  const supId  = v('d_sup_sel');
-  const sup    = staff.find(s=>s.id===supId);
-  const net    = parseFloat(gross) - parseFloat(tare);
-  const vol    = net / DENSITIES[selProd];
-  const eta    = new Date(date+'T'+time);
-  eta.setHours(eta.getHours()+6);
+}
 
-  // Generate waybill number on submission
-  const generatedWaybill = await generateWaybill(selProd);
-  document.getElementById('d_waybill').value = generatedWaybill;
-
-  const trip = {
-    id: 'BRV-'+Date.now(), reg, driverId:dsel, driverName:driver?driver.name:'Unknown',
-    driverBadge:driver?driver.badge:'', driverPhone:driver?driver.phone:'',
-    product:selProd, tare:parseFloat(tare), gross:parseFloat(gross), net,
-    volumeM3: parseFloat(vol.toFixed(3)), compartments:v('d_comps'),
-    seal, dispDate:date, dispTime:time, pressure:parseFloat(pressure),
-    refTemp:REF_TEMPS[selProd], waybill:generatedWaybill, manifest:v('d_manifest'),
-    engineer:eng2?eng2.name:'', supervisor:sup?sup.name:'', dispRemarks:v('d_remarks'),
-    checklistPassed:clr.passed, checklistFailed:clr.failed,
-    status:'transit', eta:eta.toISOString(),
-    waypoints:{ tarkwa:null, agona:null },
-    arrival:null, unloading:null, incidents:[]
-  };
-
-  trips.unshift(trip);
-  addAct(`${reg} dispatched from Prestea GCP: ${selProd} ${net.toLocaleString()} kg`, date+'T'+time);
+// Called when supervisor enters PIN - finalises the pending_sup trip
+async function finaliseDispatch(supMember) {
+  const tripId = _pendingTripId || (trips.find(t=>t.status==='pending_sup')||{}).id;
+  if(!tripId) { toast('No pending dispatch found','warn'); return; }
+  const trip = trips.find(t=>t.id===tripId);
+  if(!trip) { toast('Trip not found','warn'); return; }
+  trip.supervisor = supMember.name;
+  trip.dispSupStamp = { name:supMember.name, time:new Date().toISOString() };
+  trip.status = 'transit';
+  addAct(trip.reg+' DISPATCHED by '+supMember.name+' - en route to TNET', new Date().toISOString());
   await saveTripToFB(trip);
   await sv();
-  resetDispatch(); updatePills(); populateDropdowns();
-  toast('✓ BRV '+reg+' dispatched');
-  dispEngConfirmed = false;
-  dispSupConfirmed = false;
+  _pendingTripId = null;
+  updatePills(); populateDropdowns();
+  updatePendingSupBanner();
+  toast('BRV '+trip.reg+' dispatched. En route to TNET.');
+  resetDispatch();
+}
+
+function updatePendingSupBanner() {
+  const pending = trips.filter(t=>t.status==='pending_sup');
+  const banner = document.getElementById('pendingSupBanner');
+  const list   = document.getElementById('pendingSupList');
+  if(!banner) return;
+  if(pending.length===0){banner.style.display='none';return;}
+  banner.style.display='block';
+  list.innerHTML = pending.map(t=>'&#8226; '+t.reg+' ('+t.product+', '+t.net.toLocaleString()+' kg) - loaded at '+t.dispTime).join('<br>');
 }
 
 function resetDispatch() {
-  dispEngConfirmed=false;
-  dispSupConfirmed=false;
-  checkDispatchReady();
+  dispEngConfirmed  = false;
+  dispEngConfirmed2 = false;
+  dispSupConfirmed  = false;
+  _dispatching = false;
+  _pendingTripId = null;
   ['d_reg','d_seal','d_tare','d_gross','d_net','d_vol','d_pressure','d_manifest','d_remarks']
     .forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   const wbEl=document.getElementById('d_waybill');
   if(wbEl){wbEl.value='';wbEl.placeholder='Auto-generated on submit';}
-  document.getElementById('d_driver_sel').value='';
-  document.getElementById('d_eng_sel').value='';
-  document.getElementById('d_sup_sel').value='';
-  const supCard=document.getElementById('d_sup_card');
-  if(supCard){supCard.style.opacity='0.4';supCard.style.pointerEvents='none';}
-  ['d_eng_confirmed','d_sup_confirmed'].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display='none';});
-  document.getElementById('d_driver_warn').innerHTML='';
+  const dds=document.getElementById('d_driver_sel');if(dds)dds.value='';
+  const des=document.getElementById('d_eng_sel');if(des)des.value='';
+  const dss=document.getElementById('d_sup_sel');if(dss)dss.value='';
+  ['d_eng_confirmed','d_eng_confirmed2','d_sup_confirmed'].forEach(id=>{
+    const el=document.getElementById(id);if(el){el.style.display='none';el.textContent='';}
+  });
+  const btn2=document.getElementById('d_eng_btn2');if(btn2)btn2.style.display='block';
+  const warnEl=document.getElementById('d_driver_warn');if(warnEl)warnEl.innerHTML='';
   buildChecklist();
-  buildTnetChecklist(); Object.keys(checkState).forEach(k=>delete checkState[k]);
+  buildTnetChecklist();
+  Object.keys(checkState).forEach(k=>delete checkState[k]);
   const now=new Date();
-  document.getElementById('d_date').value=now.toISOString().slice(0,10);
-  document.getElementById('d_time').value=now.toTimeString().slice(0,5);
+  const dd=document.getElementById('d_date');if(dd)dd.value=now.toISOString().slice(0,10);
+  const dt=document.getElementById('d_time');if(dt)dt.value=now.toTimeString().slice(0,5);
   setProd('Propane');
+  // Reset step visibility
+  const sa=document.getElementById('dispStepA');if(sa)sa.style.display='block';
+  const sb=document.getElementById('dispStepB');if(sb)sb.style.display='none';
+  const sc=document.getElementById('dispStepC');if(sc)sc.style.display='none';
+  const clBtn=document.getElementById('checklistPassBtn');
+  if(clBtn){clBtn.disabled=true;clBtn.style.opacity='0.35';clBtn.style.cursor='not-allowed';}
+  const hintEl=document.getElementById('checklistHint');if(hintEl)hintEl.textContent='';
+  const dBtn=document.getElementById('dispatchBtn');
+  if(dBtn){dBtn.disabled=true;dBtn.style.opacity='0.35';dBtn.style.cursor='not-allowed';dBtn.textContent='Create Record & Notify Supervisor';}
+  updatePendingSupBanner();
 }
 
 // ═══════════════════════════════════════════
@@ -1473,7 +1677,10 @@ async function submitArrival() {
   if(!trip)return;
   const tnetClr = getTnetCheckResult();
   if(tnetClr.incomplete > 0){toast('⚠ '+tnetClr.incomplete+' arrival checklist item(s) not answered','warn');return;}
-  if(tnetClr.failed.length > 0){toast('⚠ Arrival checklist has FAIL items - resolve before entry','warn');return;}
+  if(tnetClr.failed.length > 0){
+    showTnetChecklistReject(tnetClr.failed);
+    return;
+  }
   const eng = staff.find(s=>s.id===engId);
   const supId2 = v('a_sup_sel');
   const sup2 = staff.find(s=>s.id===supId2);
@@ -1511,9 +1718,9 @@ function showApproval(trip) {
   const hold = trip.status==='gate-hold';
   body.innerHTML = `
     <div style="background:${hold?'var(--red)':'var(--green)'};border-radius:var(--r);padding:24px 18px;text-align:center;margin-bottom:14px;">
-      <div style="font-size:52px;margin-bottom:10px;">${hold?'🚫':'✅'}</div>
-      <div style="font-size:22px;font-weight:700;color:#fff;margin-bottom:6px;">${hold?'ENTRY HELD':'ENTRY APPROVED'}</div>
-      <div style="font-size:13px;color:rgba(255,255,255,0.85);margin-bottom:14px;">${hold?'BRV held for further inspection':'Driver may proceed to assigned bay'}</div>
+      <div style="font-size:52px;margin-bottom:10px;">${hold?'&#128683;':'&#9989;'}</div>
+      <div style="font-size:22px;font-weight:700;color:#fff;margin-bottom:6px;">${hold?'ENTRY DENIED - HELD':'ENTRY APPROVED'}</div>
+      <div style="font-size:13px;color:rgba(255,255,255,0.85);margin-bottom:14px;">${hold?'BRV cannot enter. Once defect is resolved, conduct full entry checklist again.':'Driver may proceed to assigned bay'}</div>
       <div style="background:rgba(255,255,255,0.15);border-radius:var(--rs);padding:12px;text-align:left;">
         <div style="display:flex;justify-content:space-between;padding:4px 0;font-size:13px;color:#fff;"><span>BRV</span><span style="font-weight:700;">${trip.reg}</span></div>
         <div style="display:flex;justify-content:space-between;padding:4px 0;font-size:13px;color:#fff;"><span>Driver</span><span style="font-weight:700;">${trip.driverName}</span></div>
@@ -1564,13 +1771,22 @@ async function submitUnload() {
     trip.arrival.pressure=v('u_pressure');
     trip.arrival.temp=arrTemp;
   }
-  // Status: unloading → cleared
+  // Status: unloading -> cleared
   trip.status='cleared';
-  addAct(`${trip.reg} custody transfer complete: ${massDel.toLocaleString()} kg | ${volCorrected.toFixed(3)} m³`,new Date().toISOString());
+  addAct(`${trip.reg} custody transfer complete: ${massDel.toLocaleString()} kg | ${volCorrected.toFixed(3)} m3`,new Date().toISOString());
   await saveTripToFB(trip);
   await sv();
   populateDropdowns(); renderArrivals(); renderDashboard(); updatePills();
-  toast('✓ Custody transfer complete: '+trip.reg);
+
+  // Show green success screen
+  document.getElementById('csReg').textContent = trip.reg + ' | ' + trip.driverName + ' | ' + trip.product;
+  document.getElementById('csDetails').textContent = 'Operator: ' + (op?op.name:'') + '  |  ' + new Date().toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
+  document.getElementById('csSummary').innerHTML =
+    '<div style="display:flex;justify-content:space-between;padding:4px 0;font-size:13px;color:#fff;"><span>Mass delivered</span><span style="font-weight:700;">' + massDel.toLocaleString() + ' kg</span></div>' +
+    '<div style="display:flex;justify-content:space-between;padding:4px 0;font-size:13px;color:#fff;"><span>Temp-corrected volume</span><span style="font-weight:700;">' + volCorrected.toFixed(3) + ' m³</span></div>' +
+    '<div style="display:flex;justify-content:space-between;padding:4px 0;font-size:13px;color:#fff;"><span>Coriolis mass (kg)</span><span style="font-weight:700;">' + flowMass.toLocaleString() + ' kg</span></div>' +
+    '<div style="display:flex;justify-content:space-between;padding:4px 0;font-size:13px;color:#fff;"><span>Mass variance</span><span style="font-weight:700;">' + massVar.toFixed(2) + '%</span></div>';
+  document.getElementById('custodySuccessOverlay').classList.add('open');
 
   // Reset form
   ['u_flow','u_postgross','u_pressure','u_temp','u_start','u_end','u_remarks'].forEach(id=>{
@@ -1587,11 +1803,33 @@ async function submitUnload() {
   if(btn)btn.disabled=true;
 }
 
+function closeCustodySuccess(){
+  document.getElementById('custodySuccessOverlay').classList.remove('open');
+}
+
+
+function showTnetChecklistReject(failedItems) {
+  const ol = document.getElementById('tnetRejectOverlay');
+  document.getElementById('tnetRejectList').innerHTML = failedItems.map(f=>'<div style="padding:4px 0;border-bottom:1px solid rgba(255,255,255,0.15);font-size:13px;color:#fff;">&#8226; '+f+'</div>').join('');
+  ol.classList.add('open');
+}
+function resetTnetChecklistForRetry() {
+  document.getElementById('tnetRejectOverlay').classList.remove('open');
+  Object.keys(tnetCheckState).forEach(k=>delete tnetCheckState[k]);
+  buildTnetChecklist();
+  gateEngConfirmed=false;
+  gateSupConfirmed=false;
+  const aec=document.getElementById('a_eng_confirmed');if(aec){aec.style.display='none';aec.textContent='';}
+  const asc=document.getElementById('a_sup_confirmed');if(asc){asc.style.display='none';asc.textContent='';}
+  const asp=document.getElementById('a_sup_section');if(asp){asp.style.opacity='0.4';asp.style.pointerEvents='none';}
+  toast('TNET checklist reset. Re-inspect once defect is resolved.','warn');
+}
+
 // ═══════════════════════════════════════════
 //  JOURNEY SCREEN
 // ═══════════════════════════════════════════
 function renderJourney() {
-  const active = trips.filter(t=>['transit','journey','overdue'].includes(t.status));
+  const active = trips.filter(t=>['transit','journey','overdue','pending_sup'].includes(t.status));
   const el = document.getElementById('journeyList');
   if(!active.length){el.innerHTML='<div class="empty">No active journeys.</div>';return;}
   el.innerHTML = active.map(t=>{
@@ -1606,6 +1844,34 @@ function renderJourney() {
     const tUnlocked=!tDone;
     const aUnlocked=!aDone&&tDone;
     const gUnlocked=!gDone&&aDone;
+    // pending_sup - show approval card instead of waypoints
+    if(t.status==='pending_sup'){
+      const supOptions = staff.filter(s=>s.role==='Supervisor'||s.role==='Admin')
+        .map(s=>'<option value="'+s.id+'">'+s.name+' ('+s.role+')</option>').join('');
+      return `<div class="journey-card" style="border:2px solid #f0c870;">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">
+          <div>
+            <div style="font-size:16px;font-weight:700;">${t.reg}</div>
+            <div style="font-size:12px;color:#85B7EB;margin-top:2px;">${t.driverName} · ${t.product} · ${t.net?t.net.toLocaleString():''} kg</div>
+          </div>
+          <div class="badge b-gate">AWAITING SUP</div>
+        </div>
+        <div style="background:rgba(255,255,255,0.08);border-radius:var(--rs);padding:10px;margin-bottom:10px;font-size:12px;color:rgba(255,255,255,0.85);">
+          <div><b>Waybill:</b> ${t.waybill||'Pending'}</div>
+          <div style="margin-top:3px;"><b>Loaded:</b> ${t.dispTime} | ${t.dispDate}</div>
+          <div style="margin-top:3px;"><b>Inspector:</b> ${t.inspector||''}</div>
+        </div>
+        <div style="background:rgba(240,200,112,0.15);border:1px solid rgba(240,200,112,0.4);border-radius:var(--rs);padding:10px;margin-bottom:12px;font-size:12px;color:#f5c070;">
+          &#9201; Loading complete. Supervisor must approve before BRV departs Prestea.
+        </div>
+        <select id="qs_sup_${t.id}" style="width:100%;height:40px;border-radius:var(--rs);border:1px solid rgba(255,255,255,0.25);background:rgba(0,0,0,0.3);color:#fff;font-size:14px;padding:0 10px;margin-bottom:8px;appearance:none;-webkit-appearance:none;">
+          <option value="">Select supervisor to approve</option>
+          ${supOptions}
+        </select>
+        <button class="btn btn-orange btn-sm" onclick="quickApproveSup('${t.id}')" style="width:100%;">Enter Supervisor PIN &amp; Dispatch</button>
+      </div>`;
+    }
+
     return `<div class="journey-card">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">
         <div>
@@ -1633,6 +1899,20 @@ function renderJourney() {
       </div>
     </div>`;
   }).join('');
+}
+
+
+// Quick supervisor approval from Journey screen pending_sup card
+function quickApproveSup(tripId) {
+  const selId = (document.getElementById('qs_sup_'+tripId)||{}).value;
+  if(!selId){toast('Select a supervisor first','warn');return;}
+  _pendingTripId = tripId;
+  // Cache the selected supervisor id for validatePin to use
+  window._quickSupId = selId;
+  // Make sure d_sup_sel has the id (if it exists on current screen)
+  const dss=document.getElementById('d_sup_sel');
+  if(dss) dss.value=selId;
+  openPin('dispatchSup');
 }
 
 function openDelayReport(tripId){
@@ -1722,6 +2002,7 @@ function startRealtimeSync() {
     const active = document.querySelector('.nb.active');
     if(!active) return;
     const screen = active.textContent.trim();
+    updatePendingSupBanner();
     if(screen==='JOURNEY') renderJourney();
     if(screen==='GATE') renderArrivals();
     if(screen==='DASH') renderDashboard();
@@ -1775,7 +2056,7 @@ function renderArrivals() {
 // ═══════════════════════════════════════════
 function tripCardHTML(t) {
   const map={transit:['b-transit','In Transit'],journey:['b-journey','On Journey'],
-    overdue:['b-overdue','OVERDUE'],'gate-waiting':['b-gate','Waiting at Gate'],gate:['b-gate','At Gate'],
+    pending_sup:['b-gate','Awaiting Sup'],overdue:['b-overdue','OVERDUE'],'gate-waiting':['b-gate','Waiting at Gate'],gate:['b-gate','At Gate'],
     'gate-hold':['b-overdue','HELD'],'unloading':['b-journey','Unloading'],
     cleared:['b-cleared','Cleared'],complete:['b-complete','Complete']};
   const[cls,lbl]=map[t.status]||['b-complete','Unknown'];
@@ -2103,8 +2384,9 @@ function openPin(ctx, targetId=null) {
   updatePinDots();
   document.getElementById('pinErr').textContent='';
   const titles={
-    dispatchEng:['Engineer Sign-off (Step 1)','Enter engineer PIN to sign off inspection'],
-    dispatchSup:['Supervisor Approval (Step 2)','Enter supervisor PIN to authorise dispatch'],
+    dispatchEng:['Inspector Authorisation (Step 1)','Enter inspector PIN to authorise pre-loading checklist'],
+    dispatchEng2:['Operations Engineer Sign-off (Step 2)','Enter Ops Engineer PIN to confirm loading and create record'],
+    dispatchSup:['Supervisor Final Dispatch Approval','Enter Supervisor/Shift Charge PIN to dispatch BRV to TNET'],
     gateEng:['Engineer Gate Check (Step 1)','Enter Operations Engineer PIN to confirm gate checks'],
     gateSup:['Supervisor Gate Approval (Step 2)','Enter supervisor PIN to approve entry'],
     addDriver:['Admin Access Required','Enter admin PIN to add driver'],
@@ -2147,26 +2429,44 @@ async function validatePin() {
   }
 
   if(pinCtx==='dispatchEng'){
-    const eng=checkPin(v('d_eng_sel'),['Engineer','Admin'],'Operations Engineer');
+    // Inspector authorises pre-loading checklist (Step A)
+    const eng=checkPin(v('d_eng_sel'),['Engineer','Admin'],'Engineer');
     if(!eng)return;
     dispEngConfirmed=true;
     const ec=document.getElementById('d_eng_confirmed');
-    ec.style.display='block'; ec.textContent='✓ Engineer sign-off: '+eng.name;
-    const sc=document.getElementById('d_sup_card');
-    if(sc){sc.style.opacity='1';sc.style.pointerEvents='all';}
+    if(ec){ec.style.display='block'; ec.textContent='Inspector authorised: '+eng.name;}
+    document.getElementById('pinOverlay').classList.remove('open');
+    checkChecklistReady();
+    toast('Inspector authorisation confirmed');
+
+  } else if(pinCtx==='dispatchEng2'){
+    // Operations Engineer confirms loading (Step B)
+    const eng=checkPin(v('d_eng_sel'),['Engineer','Admin'],'Operations Engineer');
+    if(!eng)return;
+    dispEngConfirmed2=true;
+    const ec2=document.getElementById('d_eng_confirmed2');
+    if(ec2){ec2.style.display='block'; ec2.textContent='Ops Engineer sign-off: '+eng.name;}
+    const btn2=document.getElementById('d_eng_btn2');
+    if(btn2){btn2.style.display='none';}
     document.getElementById('pinOverlay').classList.remove('open');
     checkDispatchReady();
-    toast('✓ Engineer sign-off confirmed. Supervisor approval required');
+    toast('Engineer sign-off confirmed. Ready to create dispatch record.');
 
   } else if(pinCtx==='dispatchSup'){
-    const sup=checkPin(v('d_sup_sel'),['Supervisor','Admin'],'Supervisor');
-    if(!sup)return;
-    dispSupConfirmed=true;
+    // Supervisor gives final dispatch approval - can come from Step C or Journey card
+    const supId = window._quickSupId || v('d_sup_sel');
+    window._quickSupId = null;
+    const member = staff.find(s=>s.id===supId);
+    if(!supId){err.textContent='Select a supervisor first';pinVal='';updatePinDots();return;}
+    if(!member){err.textContent='Supervisor not found';pinVal='';updatePinDots();return;}
+    if(!['Supervisor','Admin'].includes(member.role)){err.textContent='Selected staff is not a Supervisor';pinVal='';updatePinDots();return;}
+    if(member.pin!==pinVal){err.textContent='Incorrect PIN';pinVal='';updatePinDots();return;}
+    const sup=member;
     const sc2=document.getElementById('d_sup_confirmed');
-    sc2.style.display='block'; sc2.textContent='✓ Supervisor approved: '+sup.name;
+    if(sc2){sc2.style.display='block'; sc2.textContent='Supervisor approved: '+sup.name;}
     document.getElementById('pinOverlay').classList.remove('open');
-    checkDispatchReady();
-    toast('✓ Supervisor approval confirmed. Dispatch ready');
+    toast('Supervisor approved. Dispatching BRV...');
+    setTimeout(()=>finaliseDispatch(sup),400);
 
   } else if(pinCtx==='gateEng'){
     const eng=checkPin(v('a_eng_sel'),['Engineer','Admin'],'Operations Engineer');
@@ -2383,7 +2683,7 @@ function fmtDateLabel(d){
 }
 function updatePills(){
   // In Transit = dispatched, on road, waypoints, waiting at gate
-  const tr=trips.filter(t=>['transit','journey','overdue','gate-waiting'].includes(t.status)).length;
+  const tr=trips.filter(t=>['transit','journey','overdue','gate-waiting','pending_sup'].includes(t.status)).length;
   // At Gate = waiting at gate (gate-waiting amber banner only — not yet authorised)
   const ga=trips.filter(t=>t.status==='gate-waiting').length;
   // Unloading = authorised entry (gate) + custody transfer in progress (unloading)
@@ -2430,6 +2730,7 @@ function go(name,btn){
   } else {
     btn.classList.add('active');
   }
+  if(name==='dispatch'){checkChecklistReady();updatePendingSupBanner();populateDropdowns();}
   if(name==='dashboard')renderDashboard();
   if(name==='arrivals'){renderArrivals();populateDropdowns();}
   if(name==='history')renderHistory();
